@@ -38,11 +38,13 @@
 #define __LITTLE_ENDIAN__ 1
 #endif
 
-#if !defined(__BIG_ENDIAN__) && !defined(__LITTLE_ENDIAN__)
+// Windows is always little endian and MSVC doesn't define either macros, so
+// just ignore it
+#if !defined(__BIG_ENDIAN__) && !defined(__LITTLE_ENDIAN__) && !TARGET_OS_WINDOWS
 #error Do not know the endianess of this architecture
 #endif
 
-#if !__BIG_ENDIAN__ && !__LITTLE_ENDIAN__
+#if !__BIG_ENDIAN__ && !__LITTLE_ENDIAN__ && !TARGET_OS_WINDOWS
 #error Both __BIG_ENDIAN__ and __LITTLE_ENDIAN__ cannot be false
 #endif
 
