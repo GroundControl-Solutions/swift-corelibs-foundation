@@ -94,12 +94,17 @@ typedef struct __CFRuntimeClass {
         // objects should be created/initialized with a custom ref-count of 1 by the class creation functions
         // do not attempt to use any bits within the CFRuntimeBase for your reference count; store that in some additional field in your CF object
 
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#endif
 #define CF_REQUIRED_ALIGNMENT_AVAILABLE 1
     uintptr_t requiredAlignment; // Or in _kCFRuntimeRequiresAlignment in the .version field to indicate this field should be used; the allocator to _CFRuntimeCreateInstance() will be ignored in this case; if this is less than the minimum alignment the system supports, you'll get higher alignment; if this is not an alignment the system supports (e.g., most systems will only support powers of two, or if it is too high), the result (consequences) will be up to CF or the system to decide
 
 } CFRuntimeClass;
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 #define RADAR_5115468_FIXED 1
 
