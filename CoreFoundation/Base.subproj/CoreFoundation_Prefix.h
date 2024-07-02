@@ -108,7 +108,8 @@ typedef char * Class;
 #endif
 #endif
 
-#define CRSetCrashLogMessage(A) do {} while (0)
+#define CRSetCrashLogMessage(A) do { OutputDebugStringA("" A "\n"); } while (0)
+#define CRSetCrashLogMessageNoNL(A) do { OutputDebugStringA(A); } while (0)
 #define CRSetCrashLogMessage2(A) do {} while (0)
 
 #if TARGET_OS_MAC

@@ -208,7 +208,7 @@ static void __CFDataHandleOutOfMemory(CFTypeRef obj, CFIndex numBytes) CLANG_ANA
     HALT;
 }
 
-#define FAUX_HALT_MSG(msg) fprintf(stderr, "%s\n", msg)
+#define FAUX_HALT_MSG(msg) HALT_MSG(msg)
 
 CF_INLINE void __CFDataValidateRange(CFDataRef data, CFRange range) {
     if (range.location < 0) FAUX_HALT_MSG("range.location out of range (<0)");

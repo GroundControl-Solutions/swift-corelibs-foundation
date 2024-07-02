@@ -208,6 +208,7 @@ CF_PRIVATE CFIndex __CFActiveProcessorCount(void);
 
 #define HALT __builtin_trap()
 #define HALT_MSG(str) do { CRSetCrashLogMessage(str); HALT; } while (0)
+#define HALT_MSG_NONL(str) do { CRSetCrashLogMessageNoNL(str); HALT; } while (0)
 
 #ifndef CLANG_ANALYZER_NORETURN
 #if __has_feature(attribute_analyzer_noreturn)

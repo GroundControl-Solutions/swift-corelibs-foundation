@@ -151,7 +151,7 @@ static void _runLoopTimerWithBlockContext(CFRunLoopTimerRef timer, void *opaqueB
 
 #define HANDLE_DISPATCH_ON_BASE_INVOCATION_ONLY 0
 
-#define CRASH(string, errcode) do { char msg[256]; snprintf(msg, 256, string, errcode); CRSetCrashLogMessage(msg); HALT; } while (0)
+#define CRASH(string, errcode) do { char msg[256]; snprintf(msg, 256, string "\n", errcode); CRSetCrashLogMessageNoNL(msg); HALT; } while (0)
 
 #if TARGET_OS_WIN32
 

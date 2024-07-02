@@ -761,8 +761,8 @@ CF_PRIVATE void _CFAssertMismatchedTypeID(CFTypeID expected, CFTypeID actual) {
     char msg[255];
     const char *const expectedName = _CFGetTypeIDDescription(expected) ?: "<unknown>";
     const char *const actualName = _CFGetTypeIDDescription(actual) ?: "<unknown>";
-    snprintf(msg, 255, "Expected typeID %lu (%s) does not match actual typeID %lu (%s)", expected, expectedName, actual, actualName);
-    HALT_MSG(msg);
+    snprintf(msg, 255, "Expected typeID %lu (%s) does not match actual typeID %lu (%s)\n", expected, expectedName, actual, actualName);
+    HALT_MSG_NONL(msg);
 }
 
 CF_INLINE CFTypeID __CFGenericTypeID_inline(const void *cf) {
@@ -1539,11 +1539,11 @@ static void _CFRelease(CFTypeRef CF_RELEASES_ARGUMENT cf) {
         // Extra checking of values here because we're already in memory-corruption land
         if (typeID < __CFRuntimeClassTableSize) {
             CFRuntimeClass const *cfClass = __CFRuntimeClassTable[typeID];
-            snprintf(msg, 256, "Detected over-release of a CFTypeRef %p (%lu / %s)", cf, typeID, cfClass ? cfClass->className : "unknown");
+            snprintf(msg, 256, "Detected over-release of a CFTypeRef %p (%lu / %s)\n", cf, typeID, cfClass ? cfClass->className : "unknown");
         } else {
-            snprintf(msg, 256, "Detected over-release of a CFTypeRef %p (unknown type)", cf);
+            snprintf(msg, 256, "Detected over-release of a CFTypeRef %p (unknown type %lu)\n", cf, typeID);
         }
-        CRSetCrashLogMessage(msg);
+        CRSetCrashLogMessageNoNL(msg);
         HALT;
     }
 #pragma GCC diagnostic push
