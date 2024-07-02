@@ -12,7 +12,7 @@ class TestProcess : XCTestCase {
     func test_exit0() throws {
         let process = Process()
         let executableURL = xdgTestHelperURL()
-        if #available(OSX 10.13, *) {
+        if #available(macOS 10.13, *) {
             process.executableURL = executableURL
         } else {
             // Fallback on earlier versions
@@ -800,7 +800,7 @@ class TestProcess : XCTestCase {
         do {
             let data = try XCTUnwrap(pipe3.fileHandleForReading.readToEnd())
             let pwd = String.init(decoding: data, as: UTF8.self).trimmingCharacters(in: CharacterSet(["\n", "\r"]))
-            XCTAssertEqual(pwd, FileManager.default.currentDirectoryPath.standardizePath())
+            XCTAssertEqual(pwd, FileManager.default.currentDirectoryPath)
         } catch {
             XCTFail("\(error)")
         }

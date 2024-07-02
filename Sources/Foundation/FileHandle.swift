@@ -25,10 +25,8 @@ fileprivate let _close = Glibc.close(_:)
 #endif
 
 #if canImport(WinSDK)
-// We used to get the copy that was re-exported by CoreFoundation
-// but we want to explicitly depend on its types in this file,
-// so we need to make sure Swift doesn't think it's @_implementationOnly.
-import WinSDK
+import let WinSDK.INVALID_HANDLE_VALUE
+import struct WinSDK.HANDLE
 #endif
 
 extension NSError {
@@ -434,12 +432,12 @@ open class FileHandle : NSObject {
     }
 
     internal convenience init?(path: String, flags: Int32, createMode: Int) {
-      guard let fd: Int32 = try? FileManager.default._fileSystemRepresentation(withPath: path, {
-        _CFOpenFileWithMode($0, flags, mode_t(createMode))
-      }), fd > 0 else { return nil }
+        guard let fd: CInt = try? withNTPathRepresentation(of: path, {
+            _CFOpenFileWithMode($0, flags, mode_t(createMode))
+        }), fd > 0 else { return nil }
 
-      self.init(fileDescriptor: fd, closeOnDealloc: true)
-      if self._handle == INVALID_HANDLE_VALUE { return nil }
+        self.init(fileDescriptor: fd, closeOnDealloc: true)
+        if self._handle == INVALID_HANDLE_VALUE { return nil }
     }
 #else
     public init(fileDescriptor fd: Int32, closeOnDealloc closeopt: Bool) {
@@ -882,7 +880,7 @@ extension FileHandle {
                 if error == ERROR_ACCESS_DENIED {
                     var fileInfo = BY_HANDLE_FILE_INFORMATION()
                     GetFileInformationByHandle(self._handle, &fileInfo)
-                    if fileInfo.dwFileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) == DWORD(FILE_ATTRIBUTE_DIRECTORY) {
+                    if fileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY == FILE_ATTRIBUTE_DIRECTORY {
                         translatedError = Int32(ERROR_DIRECTORY_NOT_SUPPORTED)
                     }
                 }

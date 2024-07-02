@@ -26,8 +26,11 @@
 
 
 #if TARGET_OS_WIN32
+#include <lm.h>
+#include <sddl.h>
 #include <shellapi.h>
 #include <shlobj.h>
+#include <shlwapi.h>
 #include <WinIoCtl.h>
 #include <direct.h>
 #include <process.h>
@@ -249,7 +252,11 @@ const char *_CFProcessPath(void) {
 
 #if TARGET_OS_MAC || TARGET_OS_WIN32 || TARGET_OS_BSD
 CF_CROSS_PLATFORM_EXPORT Boolean _CFIsMainThread(void) {
+#if defined(__OpenBSD__)
+    return pthread_equal(pthread_self(), _CFMainPThread) != 0;
+#else
     return pthread_main_np() == 1;
+#endif
 }
 #endif
 
@@ -271,8 +278,11 @@ CF_PRIVATE CFStringRef _CFProcessNameString(void) {
     static CFStringRef __CFProcessNameString = NULL;
     if (!__CFProcessNameString) {
         const char *processName = *_CFGetProgname();
-        if (!processName) processName = "";
-        CFStringRef newStr = CFStringCreateWithCString(kCFAllocatorSystemDefault, processName, kCFPlatformInterfaceStringEncoding);
+        CFStringRef newStr;
+        if (processName)
+            newStr  = CFStringCreateWithCString(kCFAllocatorSystemDefault, processName, kCFPlatformInterfaceStringEncoding);
+        else
+            newStr = CFSTR("");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated"
         if (!OSAtomicCompareAndSwapPtrBarrier(NULL, (void *) newStr, (void * volatile *)& __CFProcessNameString)) {
@@ -385,7 +395,7 @@ CF_PRIVATE CFStringRef _CFStringCreateHostName(void) {
     char myName[CFMaxHostNameSize];
 
     // return @"" instead of nil a la CFUserName() and Ali Ozer
-    if (0 != gethostname(myName, CFMaxHostNameSize)) myName[0] = '\0';
+    if (0 != gethostname(myName, CFMaxHostNameSize)) return CFSTR("");
     return CFStringCreateWithCString(kCFAllocatorSystemDefault, myName, kCFPlatformInterfaceStringEncoding);
 }
 
@@ -573,15 +583,82 @@ CF_EXPORT CFURLRef CFCopyHomeDirectoryURLForUser(CFStringRef uName) {
         return result;
     }
 #elif TARGET_OS_WIN32
-    // This code can only get the directory for the current user
-    CFStringRef userName = uName ? CFCopyUserName() : NULL;
-    if (uName && !CFEqual(uName, userName)) {
-        CFLog(kCFLogLevelError, CFSTR("CFCopyHomeDirectoryURLForUser(): Unable to get home directory for other user"));
-        if (userName) CFRelease(userName);
-        return NULL;
+    if (uName == NULL) {
+      return CFCopyHomeDirectoryURL();
     }
-    if (userName) CFRelease(userName);
-    return CFCopyHomeDirectoryURL();
+
+    static const wchar_t * const kProfileListPath =
+        L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList\\";
+    static const wchar_t * const kProfileImagePath = L"ProfileImagePath";
+
+    CFURLRef url = NULL;
+
+    CFIndex ulLength = CFStringGetLength(uName);
+    UniChar *pwszUserName =
+        CFAllocatorAllocate(kCFAllocatorSystemDefault,
+                            (ulLength + 1) * sizeof(UniChar), 0);
+    if (pwszUserName == NULL)
+      return NULL;
+
+    CFStringGetCharacters(uName, CFRangeMake(0, ulLength), pwszUserName);
+    pwszUserName[ulLength] = L'\0';
+
+    DWORD cbSID = 0;
+    DWORD cchReferencedDomainName = 0;
+    SID_NAME_USE eUse;
+    LookupAccountNameW(NULL, pwszUserName, NULL, &cbSID, NULL,
+                       &cchReferencedDomainName, &eUse);
+
+    LPBYTE pSID = CFAllocatorAllocate(kCFAllocatorSystemDefault, cbSID, 0);
+    LPWSTR pwszReferencedDomainName =
+        CFAllocatorAllocate(kCFAllocatorSystemDefault,
+                            (cchReferencedDomainName + 1) * sizeof(UniChar), 0);
+
+    if (LookupAccountNameW(NULL, pwszUserName, pSID, &cbSID,
+                           pwszReferencedDomainName, &cchReferencedDomainName,
+                           &eUse)) {
+      LPWSTR pwszSID;
+
+      if (ConvertSidToStringSidW(pSID, &pwszSID)) {
+        DWORD cchBuffer = wcslen(kProfileListPath) + wcslen(pwszSID) + 1;
+        PWSTR pwszKeyPath =
+            CFAllocatorAllocate(kCFAllocatorSystemDefault,
+                                cchBuffer * sizeof(UniChar), 0);
+
+        DWORD dwOffset =
+            StrCatChainW(pwszKeyPath, cchBuffer, 0, kProfileListPath);
+        StrCatChainW(pwszKeyPath, cchBuffer, dwOffset, pwszSID);
+
+        DWORD cbData = 0;
+        RegGetValueW(HKEY_LOCAL_MACHINE, pwszKeyPath, kProfileImagePath,
+                     RRF_RT_REG_SZ, NULL, NULL, &cbData);
+
+        LPWSTR pwszProfileImagePath =
+            CFAllocatorAllocate(kCFAllocatorSystemDefault, cbData, 0);
+        RegGetValueW(HKEY_LOCAL_MACHINE, pwszKeyPath, kProfileImagePath,
+                     RRF_RT_REG_SZ, NULL, pwszProfileImagePath, &cbData);
+
+        CFStringRef profile =
+            CFStringCreateWithCharacters(kCFAllocatorSystemDefault,
+                                         pwszProfileImagePath,
+                                         cbData / sizeof(wchar_t));
+
+        url = CFURLCreateWithFileSystemPath(kCFAllocatorSystemDefault,
+                                            profile, kCFURLWindowsPathStyle,
+                                            true);
+        CFRelease(profile);
+        CFAllocatorDeallocate(kCFAllocatorSystemDefault, pwszProfileImagePath);
+        CFAllocatorDeallocate(kCFAllocatorSystemDefault, pwszKeyPath);
+      }
+
+      LocalFree(pwszSID);
+    }
+
+    CFAllocatorDeallocate(kCFAllocatorSystemDefault, pwszReferencedDomainName);
+    CFAllocatorDeallocate(kCFAllocatorSystemDefault, pSID);
+    CFAllocatorDeallocate(kCFAllocatorSystemDefault, pwszUserName);
+
+    return url;
 #else
 #error Dont know how to compute users home directories on this platform
 #endif
@@ -782,7 +859,7 @@ __CFTSDFinalize(void *arg) {
 #if TARGET_OS_WASI
     __CFMainThreadHasExited = true;
 #else
-    if (pthread_main_np() == 1) {
+    if (_CFIsMainThread()) {
         // Important: we need to be sure that the only time we set this flag to true is when we actually can guarentee we ARE the main thread. 
         __CFMainThreadHasExited = true;
     }
@@ -1604,6 +1681,9 @@ typedef struct _CFThreadSpecificData {
 } _CFThreadSpecificData;
 #endif
 
+#if TARGET_OS_WIN32
+__stdcall
+#endif
 static void _CFThreadSpecificDestructor(void *ctx) {
 #if TARGET_OS_WIN32
     _CFThreadSpecificData *data = (_CFThreadSpecificData *)ctx;

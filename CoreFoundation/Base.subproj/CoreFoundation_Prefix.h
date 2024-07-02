@@ -193,7 +193,8 @@ static dispatch_queue_t __ ## PREFIX ## Queue(void) {			\
 #define CF_RETAIN_BALANCED_ELSEWHERE(obj, identified_location) do { } while (0)
 #endif
 
-#if (TARGET_OS_LINUX && !TARGET_OS_ANDROID && !TARGET_OS_CYGWIN) || TARGET_OS_WIN32
+#if !TARGET_OS_MAC
+#ifndef HAVE_STRLCPY
 CF_INLINE size_t
 strlcpy(char * dst, const char * src, size_t maxlen) {
     const size_t srclen = strlen(src);
@@ -205,7 +206,9 @@ strlcpy(char * dst, const char * src, size_t maxlen) {
     }
     return srclen;
 }
+#endif // !HAVE_STRLCPY
 
+#ifndef HAVE_STRLCAT
 CF_INLINE size_t
 strlcat(char * dst, const char * src, size_t maxlen) {
     const size_t srclen = strlen(src);
@@ -219,7 +222,8 @@ strlcat(char * dst, const char * src, size_t maxlen) {
     }
     return dstlen + srclen;
 }
-#endif
+#endif // !HAVE_STRLCAT
+#endif // !TARGET_OS_MAC
 
 #if TARGET_OS_WIN32
 // Compatibility with boolean.h

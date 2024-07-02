@@ -118,18 +118,24 @@ class TestDateInterval: XCTestCase {
     }
 
     func test_contains() {
+        let date0 = dateWithString("1964-10-01 06:00:00 +0900")
         let date1 = dateWithString("2019-04-04 17:00:00 -0700")
         let date2 = dateWithString("2019-04-04 17:30:00 -0700")
         let date3 = dateWithString("2019-04-04 17:45:00 -0700")
         let date4 = dateWithString("2019-04-04 17:50:00 -0700")
-        let dateInterval = DateInterval(start: date1, duration: 60 * 45)
-        XCTAssertTrue(dateInterval.contains(date2))
-        XCTAssertTrue(dateInterval.contains(date3))
-        XCTAssertFalse(dateInterval.contains(date4))
+
+        XCTAssertTrue(DateInterval(start: .distantPast, end: .distantFuture).contains(date0))
+        XCTAssertTrue(DateInterval(start: .distantPast, end: date1).contains(date0))
+        XCTAssertFalse(DateInterval(start: .distantPast, end: date1).contains(date2))
+        XCTAssertTrue(DateInterval(start: date0, end: date4).contains(date2))
+        XCTAssertTrue(DateInterval(start: date1, duration: 60 * 45).contains(date3))
+        XCTAssertFalse(DateInterval(start: date1, duration: 60 * 45).contains(date4))
+        XCTAssertTrue(DateInterval(start: date2, end: .distantFuture).contains(date2))
+        XCTAssertFalse(DateInterval(start: date2, end: .distantFuture).contains(date0))
     }
 
     func test_hashing() {
-        guard #available(iOS 10.10, OSX 10.12, tvOS 10.0, watchOS 3.0, *) else { return }
+        guard #available(iOS 10.10, macOS 10.12, tvOS 10.0, watchOS 3.0, *) else { return }
 
         let start1a = dateWithString("2019-04-04 17:09:23 -0700")
         let start1b = dateWithString("2019-04-04 17:09:23 -0700")

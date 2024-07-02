@@ -9,6 +9,9 @@
 
 
 @_implementationOnly import CoreFoundation
+#if os(Windows)
+import WinSDK
+#endif
 
 internal let kCFURLPOSIXPathStyle = CFURLPathStyle.cfurlposixPathStyle
 internal let kCFURLWindowsPathStyle = CFURLPathStyle.cfurlWindowsPathStyle
@@ -478,12 +481,16 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
     
     // Memory leak. See https://github.com/apple/swift-corelibs-foundation/blob/master/Docs/Issues.md
     open var fileSystemRepresentation: UnsafePointer<Int8> {
-
 #if os(Windows)
-        let bufSize = Int(MAX_PATH + 1)
+        if let resolved = CFURLCopyAbsoluteURL(_cfObject),
+                let representation = CFURLCopyFileSystemPath(resolved, kCFURLWindowsPathStyle)?._swiftObject {
+            let buffer = UnsafeMutablePointer<Int8>.allocate(capacity: representation.count + 1)
+            representation.withCString { buffer.initialize(from: $0, count: representation.count + 1) }
+            buffer[representation.count] = 0
+            return UnsafePointer(buffer)
+        }
 #else
         let bufSize = Int(PATH_MAX + 1)
-#endif
 
         let _fsrBuffer = UnsafeMutablePointer<Int8>.allocate(capacity: bufSize)
         _fsrBuffer.initialize(repeating: 0, count: bufSize)
@@ -491,6 +498,7 @@ open class NSURL : NSObject, NSSecureCoding, NSCopying {
         if getFileSystemRepresentation(_fsrBuffer, maxLength: bufSize) {
             return UnsafePointer(_fsrBuffer)
         }
+#endif
 
         // FIXME: This used to return nil, but the corresponding Darwin
         // implementation is marked as non-nullable.
@@ -916,7 +924,34 @@ extension NSURL {
 #endif
         }
 
-        
+#if os(Windows)
+        let hFile: HANDLE = absolutePath.withCString(encodedAs: UTF16.self) {
+          CreateFileW($0, GENERIC_READ,
+                      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                      nil, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nil)
+        }
+        guard hFile == INVALID_HANDLE_VALUE else {
+          defer { CloseHandle(hFile) }
+
+          let dwLength = GetFinalPathNameByHandleW(hFile, nil, 0, 0)
+          return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: Int(dwLength)) {
+            let dwLength =
+                GetFinalPathNameByHandleW(hFile, $0.baseAddress, DWORD($0.count), 0)
+            assert(dwLength < $0.count)
+
+            var resolved = String(decodingCString: $0.baseAddress!, as: UTF16.self)
+            if preserveDirectoryFlag {
+              var isExistingDirectory: ObjCBool = false
+              let _ = FileManager.default.fileExists(atPath: resolved, isDirectory: &isExistingDirectory)
+              if isExistingDirectory.boolValue && !resolved.hasSuffix("/") {
+                resolved += "/"
+              }
+            }
+            return URL(fileURLWithPath: resolved)
+          }
+        }
+#endif
+
         var components = URL(fileURLWithPath: absolutePath).pathComponents
         guard !components.isEmpty else {
             return URL(string: absoluteString)

@@ -49,7 +49,7 @@ extension FileManager {
             return urls
         }
 
-        if #available(OSX 10.13, *) {
+        if #available(macOS 10.13, *) {
             var statBufPtr: UnsafeMutablePointer<statfs>?
             let fsCount = getmntinfo_r_np(&statBufPtr, MNT_WAIT)
             guard let statBuf = statBufPtr, fsCount > 0 else {
@@ -584,7 +584,7 @@ extension FileManager {
         }
         defer { close(srcfd) }
 
-        let dstfd = open(dstRep, O_WRONLY | O_CREAT | O_TRUNC, 0o666)
+        let dstfd = open(dstRep, O_WRONLY | O_CREAT | O_EXCL | O_TRUNC, 0o666)
         guard dstfd >= 0 else {
             throw _NSErrorWithErrno(errno, reading: false, path: dstPath,
                                     extraUserInfo: extraErrorInfo(srcPath: srcPath, dstPath: dstPath, userVariant: variant))

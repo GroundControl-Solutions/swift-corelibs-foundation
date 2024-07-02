@@ -8,16 +8,15 @@
 //
 
 @_implementationOnly import CoreFoundation
+#if os(Windows)
+import WinSDK
+import let WinSDK.HANDLE_FLAG_INHERIT
+import let WinSDK.STARTF_USESTDHANDLES
+import struct WinSDK.HANDLE
+#endif
 
 #if canImport(Darwin)
 import Darwin
-#endif
-
-#if canImport(WinSDK)
-// We used to get the copy that was re-exported by CoreFoundation
-// but we want to explicitly depend on its types in this file,
-// so we need to make sure Swift doesn't think it's @_implementationOnly.
-import WinSDK
 #endif
 
 extension Process {
@@ -448,6 +447,13 @@ open class Process: NSObject {
 
       var value: u_long = 1
       if ioctlsocket(first, CLong(FIONBIO), &value) == SOCKET_ERROR {
+        closesocket(first)
+        return (first: INVALID_SOCKET, second: INVALID_SOCKET)
+      }
+
+      var option: CInt = 1
+      if setsockopt(first, IPPROTO_TCP.rawValue, TCP_NODELAY, &option,
+                    CInt(MemoryLayout.size(ofValue: option))) == SOCKET_ERROR {
         closesocket(first)
         return (first: INVALID_SOCKET, second: INVALID_SOCKET)
       }
@@ -1128,14 +1134,17 @@ open class Process: NSObject {
     open func waitUntilExit() {
         let runInterval = 0.05
         let currentRunLoop = RunLoop.current
-        let checkRunLoop : () -> Bool = (currentRunLoop == self.runLoop)
-                ? { currentRunLoop.run(mode: .default, before: Date(timeIntervalSinceNow: runInterval)) }
-                : { currentRunLoop.run(until: Date(timeIntervalSinceNow: runInterval)); return true }
 
-        // update .runLoop to allow early wakeup.
+        let runRunLoop : () -> Void = (currentRunLoop == self.runLoop)
+                ? { currentRunLoop.run(mode: .default, before: Date(timeIntervalSinceNow: runInterval)) }
+                : { currentRunLoop.run(until: Date(timeIntervalSinceNow: runInterval)) }
+        // update .runLoop to allow early wakeup triggered by terminateRunLoop.
         self.runLoop = currentRunLoop
-        while self.isRunning && checkRunLoop() {}
-        
+
+        while self.isRunning {
+            runRunLoop()
+        } 
+
         self.runLoop = nil
         self.runLoopSource = nil
     }

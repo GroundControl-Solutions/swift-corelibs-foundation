@@ -130,7 +130,7 @@ class TestJSONEncoder : XCTestCase {
         _testRoundTrip(of: person, expectedJSON: expectedJSON, outputFormatting: [.prettyPrinted])
 
         let encoder = JSONEncoder()
-        if #available(OSX 10.13, *) {
+        if #available(macOS 10.13, *) {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         } else {
             // Fallback on earlier versions
@@ -470,6 +470,24 @@ class TestJSONEncoder : XCTestCase {
         let decoder = JSONDecoder()
         do {
             let _ = try decoder.decode(NotFoundSuperDecoderTestType.self, from: Data(#"{}"#.utf8))
+        } catch {
+            XCTFail("Caught error during decoding empty super decoder: \(error)")
+        }
+    }
+    
+    func test_childTypeDecoder() {
+        class BaseTestType: Decodable { }
+        class ChildTestType: BaseTestType { }
+
+        func dynamicTestType() -> BaseTestType.Type {
+            return ChildTestType.self
+        }
+
+        let decoder = JSONDecoder()
+        do {
+            let testType = dynamicTestType()
+            let instance = try decoder.decode(testType, from: Data(#"{}"#.utf8))
+            XCTAssertTrue(instance is ChildTestType)
         } catch {
             XCTFail("Caught error during decoding empty super decoder: \(error)")
         }
@@ -942,7 +960,7 @@ class TestJSONEncoder : XCTestCase {
 
     func test_OutputFormattingValues() {
         XCTAssertEqual(JSONEncoder.OutputFormatting.prettyPrinted.rawValue, 1)
-        if #available(OSX 10.13, *) {
+        if #available(macOS 10.13, *) {
             XCTAssertEqual(JSONEncoder.OutputFormatting.sortedKeys.rawValue, 2)
         }
         XCTAssertEqual(JSONEncoder.OutputFormatting.withoutEscapingSlashes.rawValue, 8)
@@ -1562,6 +1580,7 @@ extension TestJSONEncoder {
             ("test_nestedContainerCodingPaths", test_nestedContainerCodingPaths),
             ("test_superEncoderCodingPaths", test_superEncoderCodingPaths),
             ("test_notFoundSuperDecoder", test_notFoundSuperDecoder),
+            ("test_childTypeDecoder", test_childTypeDecoder),
             ("test_codingOfBool", test_codingOfBool),
             ("test_codingOfNil", test_codingOfNil),
             ("test_codingOfInt8", test_codingOfInt8),

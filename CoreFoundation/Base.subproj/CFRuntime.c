@@ -274,7 +274,7 @@ bool (*__CFObjCIsCollectable)(void *) = NULL;
 // The constant string class reference is set at link time to _NSCFConstantString
 void *__CFConstantStringClassReferencePtr = &_CF_CONSTANT_STRING_SWIFT_CLASS;
 #else
-#if !__CONSTANT_CFSTRINGS__
+#ifndef __CONSTANT_CFSTRINGS__
 // Compiler uses this symbol name; must match compiler built-in decl, so we use 'int'
 #if TARGET_RT_64_BIT
 int __CFConstantStringClassReference[24] = {0};
@@ -446,9 +446,9 @@ CFTypeRef _CFRuntimeCreateInstance(CFAllocatorRef allocator, CFTypeID typeID, CF
 
 #if !defined(__APPLE__) && (defined(__i686__) || (defined(__arm__) && !defined(__aarch64__)) || defined(_M_IX86) || defined(_M_ARM))
     // Linux and Windows 32-bit targets perform 8-byte alignment by default.
-    static const kDefaultAlignment = 8;
+    static const int kDefaultAlignment = 8;
 #else
-    static const kDefaultAlignment = 16;
+    static const int kDefaultAlignment = 16;
 #endif
 
     // Ensure that we get the alignment correct for various targets.  In the
@@ -786,7 +786,7 @@ CFTypeRef _CFNonObjCRetain(CFTypeRef cf) {
 
 CFTypeRef CFRetain(CFTypeRef cf) {
     if (NULL == cf) { CRSetCrashLogMessage("*** CFRetain() called with NULL ***"); HALT; }
-    if (cf) __CFGenericAssertIsCF(cf);
+    __CFGenericAssertIsCF(cf);
     return _CFRetain(cf, false);
 }
 
@@ -804,7 +804,7 @@ void _CFNonObjCRelease(CFTypeRef cf) {
 
 void CFRelease(CFTypeRef cf) {
     if (NULL == cf) { CRSetCrashLogMessage("*** CFRelease() called with NULL ***"); HALT; }
-    if (cf) __CFGenericAssertIsCF(cf);
+    __CFGenericAssertIsCF(cf);
     _CFRelease(cf);
 }
 
@@ -1179,7 +1179,7 @@ void __CFInitialize(void) {
     if (!__CFInitialized && !__CFInitializing) {
         __CFInitializing = 1;
 
-#if __HAS_DISPATCH__
+#if __HAS_DISPATCH__ && !TARGET_OS_MAC
     // libdispatch has to be initialized before CoreFoundation, so to avoid
     // issues with static initializer ordering, we are doing it explicitly.
     libdispatch_init();

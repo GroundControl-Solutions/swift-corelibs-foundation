@@ -13,7 +13,7 @@
 @_implementationOnly import CoreFoundation
 
 /// DateInterval represents a closed date interval in the form of [startDate, endDate].  It is possible for the start and end dates to be the same with a duration of 0.  DateInterval does not support reverse intervals i.e. intervals where the duration is less than 0 and the end date occurs earlier in time than the start date.
-public struct DateInterval : ReferenceConvertible, Comparable, Hashable {
+public struct DateInterval : ReferenceConvertible, Comparable, Sendable, Hashable {
     public typealias ReferenceType = NSDateInterval
     
     /// The start date.
@@ -141,13 +141,7 @@ public struct DateInterval : ReferenceConvertible, Comparable, Hashable {
     
     /// Returns `true` if `self` contains `date`.
     public func contains(_ date: Date) -> Bool {
-        let timeIntervalForGivenDate = abs(date.timeIntervalSinceReferenceDate)
-        let timeIntervalForSelfStart = abs(start.timeIntervalSinceReferenceDate)
-        let timeIntervalForSelfEnd = abs(end.timeIntervalSinceReferenceDate)
-        if (timeIntervalForGivenDate >= timeIntervalForSelfStart) && (timeIntervalForGivenDate <= timeIntervalForSelfEnd) {
-            return true
-        }
-        return false
+        return (start...end).contains(date)
     }
     
     public func hash(into hasher: inout Hasher) {

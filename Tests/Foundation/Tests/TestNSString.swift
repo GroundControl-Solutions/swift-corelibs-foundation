@@ -460,6 +460,35 @@ class TestNSString: LoopbackServerTest {
         }
     }
 
+    func test_writeToURLHasBOM_UTF32() throws {
+        var url = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+        url.appendPathComponent("swiftfoundation-\(#function)-tmp")
+
+        // Writing with String.Encoding.utf32 should include the BOM.
+        let string = NSString("hello, 🌍!")
+        do {
+            try string.write(to: url, atomically: false, encoding: String.Encoding.utf32.rawValue)
+            let data = try Data(contentsOf: url)
+            #if _endian(little)
+                XCTAssertTrue(data.starts(with: [0xFF, 0xFE, 0x00, 0x00]))
+            #else
+                XCTAssertTrue(data.starts(with: [0x00, 0x00, 0xFE, 0xFF]))
+            #endif
+        }
+        // Writing with String.Encoding.utf32{Big/Little}Endian does not include the BOM.
+        do {
+            try string.write(to: url, atomically: false, encoding: String.Encoding.utf32BigEndian.rawValue)
+            let data = try Data(contentsOf: url)
+            XCTAssertTrue(data.starts(with: [0x00, 0x00, 0x00, 0x68]))
+        }
+        do {
+            try string.write(to: url, atomically: false, encoding: String.Encoding.utf32LittleEndian.rawValue)
+            let data = try Data(contentsOf: url)
+            XCTAssertTrue(data.starts(with: [0x68, 0x00, 0x00, 0x00]))
+        }
+    }
+
     func test_uppercaseString() {
         XCTAssertEqual(NSString(stringLiteral: "abcd").uppercased, "ABCD")
         XCTAssertEqual(NSString(stringLiteral: "ａｂｃｄ").uppercased, "ＡＢＣＤ") // full-width
@@ -976,7 +1005,9 @@ class TestNSString: LoopbackServerTest {
         let userName = NSUserName()
         let homeDir2 = NSHomeDirectoryForUser(userName)
         let homeDir3 = NSHomeDirectory()
-        XCTAssert(homeDir != nil && homeDir == homeDir2 && homeDir == homeDir3, "Could get user' home directory")
+        XCTAssertNotNil(homeDir)
+        XCTAssertEqual(homeDir, homeDir2)
+        XCTAssertEqual(homeDir, homeDir3)
     }
     
     func test_expandingTildeInPath() {
@@ -988,21 +1019,22 @@ class TestNSString: LoopbackServerTest {
         do {
             let path: NSString = "~"
             let result = path.expandingTildeInPath
-            XCTAssert(result == NSHomeDirectory(), "Could resolve home directory for current user")
+            XCTAssertEqual(result, NSHomeDirectory(), "Could resolve home directory for current user")
             XCTAssertFalse(result.hasSuffix("/") && result != rootDirectory, "Result should not have a trailing path separator")
         }
         
         do {
             let path: NSString = "~/"
             let result = path.expandingTildeInPath
-            XCTAssert(result == NSHomeDirectory(), "Could resolve home directory for current user")
+            XCTAssertEqual(result, NSHomeDirectory(), "Could resolve home directory for current user")
             XCTAssertFalse(result.hasSuffix("/") && result != rootDirectory, "Result should not have a trailing path separator")
         }
         
         do {
             let path = NSString(string: "~\(NSUserName())")
             let result = path.expandingTildeInPath
-            XCTAssert(result == NSHomeDirectory(), "Could resolve home directory for specific user")
+            XCTAssertEqual(result, NSHomeDirectory(),
+                           "Could resolve home directory for specific user")
             XCTAssertFalse(result.hasSuffix("/") && result != rootDirectory, "Result should not have a trailing path separator")
         }
         
@@ -1788,6 +1820,7 @@ class TestNSString: LoopbackServerTest {
             ("test_FromContentsOfURLUsedEncodingUTF32BE", test_FromContentsOfURLUsedEncodingUTF32BE),
             ("test_FromContentsOfURLUsedEncodingUTF32LE", test_FromContentsOfURLUsedEncodingUTF32LE),
             ("test_FromContentOfFile",test_FromContentOfFile),
+            ("test_writeToURLHasBOM_UTF32", test_writeToURLHasBOM_UTF32),
             ("test_swiftStringUTF16", test_swiftStringUTF16),
             ("test_stringByTrimmingCharactersInSet", test_stringByTrimmingCharactersInSet),
             ("test_initializeWithFormat", test_initializeWithFormat),

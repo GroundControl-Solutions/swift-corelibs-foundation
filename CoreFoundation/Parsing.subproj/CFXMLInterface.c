@@ -1125,7 +1125,7 @@ _CFXMLDTDPtr _CFXMLNewDTD(_CFXMLDocPtr doc, const unsigned char* name, const uns
     return xmlNewDtd(doc, name, publicID, systemID);
 }
 
-void _CFXMLNotationScanner(void* payload, void* data, xmlChar* name) {
+void _CFXMLNotationScanner(void* payload, void* data, const xmlChar* name) {
     xmlNotationPtr notation = (xmlNotationPtr)payload;
     _cfxmlNotation* node = (_cfxmlNotation*)data;
     node->type = XML_NOTATION_NODE;
@@ -1147,7 +1147,13 @@ _CFXMLDTDNodePtr _CFXMLParseDTDNode(const unsigned char* xmlString) {
         xmlUnlinkNode(node);
     } else if (dtd->notations) {
         node = (xmlNodePtr)calloc(1, sizeof(_cfxmlNotation));
-        xmlHashScan((xmlNotationTablePtr)dtd->notations, &_CFXMLNotationScanner, (void*)node);
+        // libxml2 v2.9.8 fixed their function signatures, but before that
+        // `xmlHashScanner` was defined without the const on `xmlChar *`.
+#if LIBXML_VERSION > 20907
+        xmlHashScan((xmlNotationTablePtr)dtd->notations, &_CFXMLNotationScanner, node);
+#else
+        xmlHashScan((xmlNotationTablePtr)dtd->notations, (void (*)(void *, void *, xmlChar *))&_CFXMLNotationScanner, node);
+#endif
     }
 
     return node;

@@ -74,9 +74,15 @@ static const uint8_t __CFNumberCanonicalTypeIndex[] = {
 
 
 #if TARGET_OS_WIN32
+#ifndef isnan
 #define isnan(A) _isnan(A)
+#endif
+#ifndef isinf
 #define isinf(A) !_finite(A)
+#endif
+#ifndef copysign
 #define copysign(A, B) _copysign(A, B)
+#endif
 #endif
 
 #define __CFAssertIsBoolean(cf) __CFGenericValidateType(cf, CFBooleanGetTypeID())

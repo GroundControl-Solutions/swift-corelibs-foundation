@@ -12,6 +12,15 @@
 
 #if DEPLOYMENT_RUNTIME_SWIFT
 
+#if os(Windows)
+@usableFromInline let calloc = ucrt.calloc
+@usableFromInline let malloc = ucrt.malloc
+@usableFromInline let free = ucrt.free
+@usableFromInline let memset = ucrt.memset
+@usableFromInline let memcpy = ucrt.memcpy
+@usableFromInline let memcmp = ucrt.memcmp
+#endif
+
 #if canImport(Glibc)
 @usableFromInline let calloc = Glibc.calloc
 @usableFromInline let malloc = Glibc.malloc
@@ -66,7 +75,7 @@ import _SwiftFoundationOverlayShims
 import _SwiftCoreFoundationOverlayShims
 
 internal func __NSDataIsCompact(_ data: NSData) -> Bool {
-    if #available(OSX 10.10, iOS 8.0, tvOS 9.0, watchOS 2.0, *) {
+    if #available(macOS 10.10, iOS 8.0, tvOS 9.0, watchOS 2.0, *) {
         return data._isCompact()
     } else {
         var compact = true
@@ -651,7 +660,7 @@ internal class __NSSwiftData : NSData {
 }
 
 @frozen
-public struct Data : ReferenceConvertible, Equatable, Hashable, RandomAccessCollection, MutableCollection, RangeReplaceableCollection, MutableDataProtocol, ContiguousBytes {
+public struct Data : ReferenceConvertible, Equatable, Hashable, RandomAccessCollection, MutableCollection, RangeReplaceableCollection, MutableDataProtocol, ContiguousBytes, @unchecked Sendable {
     public typealias ReferenceType = NSData
 
     public typealias ReadingOptions = NSData.ReadingOptions
